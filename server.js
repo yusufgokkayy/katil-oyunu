@@ -1,0 +1,186 @@
+const express = require('express');
+const http = require('http');
+const { Server } = require('socket.io');
+const path = require('path');
+const fs = require('fs');
+
+const app = express();
+const server = http.createServer(app);
+const io = new Server(server);
+
+// Statik dosyalar
+app.use(express.static(path.join(__dirname, 'public')));
+
+// Veri dosyası
+const DATA_FILE = path.join(__dirname, 'data.json');
+
+// Verileri dosyadan yükle
+function loadData() {
+    try {
+        if (fs.existsSync(DATA_FILE)) {
+            const data = fs.readFileSync(DATA_FILE, 'utf8');
+            return JSON.parse(data);
+        }
+    } catch (err) {
+        console.log('Veri dosyası okunamadı, yeni başlatılıyor');
+    }
+    return [];
+}
+
+// Verileri dosyaya kaydet
+function saveData() {
+    try {
+        fs.writeFileSync(DATA_FILE, JSON.stringify(teams, null, 2));
+    } catch (err) {
+        console.log('Veri kaydedilemedi:', err);
+    }
+}
+
+// Oyun verileri
+let teams = loadData();
+const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD || '260678';
+
+// Socket.io bağlantıları
+io.on('connection', (socket) => {
+    console.log('Kullanıcı bağlandı:', socket.id);
+
+    // Takım listesini gönder
+    socket.emit('teams-update', teams);
+
+    // Yeni takım oluştur
+    socket.on('create-team', (name, callback) => {
+        const exists = teams.some(t => t.name.toLowerCase() === name.toLowerCase());
+        if (exists) {
+            callback({ success: false, error: 'Bu isimde takım var!' });
+            return;
+        }
+
+        const team = {
+            id: 'team_' + Date.now(),
+            name: name,
+            score: 0,
+            clues: []
+        };
+
+        teams.push(team);
+        saveData();
+        callback({ success: true, team: team });
+
+        io.emit('teams-update', teams);
+        console.log('Takım oluşturuldu:', name);
+    });
+
+    // Takıma giriş yap
+    socket.on('join-team', (teamId, callback) => {
+        const team = teams.find(t => t.id === teamId);
+        if (team) {
+            socket.join(teamId);
+            callback({ success: true, team: team });
+        } else {
+            callback({ success: false, error: 'Takım bulunamadı!' });
+        }
+    });
+
+    // Takım bilgisi al
+    socket.on('get-team', (teamId, callback) => {
+        const team = teams.find(t => t.id === teamId);
+        callback(team || null);
+    });
+
+    // İpucu ekle
+    socket.on('add-clue', (data, callback) => {
+        const team = teams.find(t => t.id === data.teamId);
+        if (team) {
+            team.clues.push({
+                text: data.clue,
+                time: new Date().toLocaleTimeString('tr-TR', { hour: '2-digit', minute: '2-digit' })
+            });
+            saveData();
+            callback({ success: true });
+
+            io.emit('teams-update', teams);
+            io.to(data.teamId).emit('team-update', team);
+        } else {
+            callback({ success: false, error: 'Takım bulunamadı!' });
+        }
+    });
+
+    // Admin şifre kontrolü
+    socket.on('admin-login', (password, callback) => {
+        if (password === ADMIN_PASSWORD) {
+            callback({ success: true });
+        } else {
+            callback({ success: false, error: 'Yanlış şifre!' });
+        }
+    });
+
+    // Puan değiştir (admin)
+    socket.on('change-score', (data, callback) => {
+        const team = teams.find(t => t.id === data.teamId);
+        if (team) {
+            const newScore = team.score + data.amount;
+            if (newScore < 0) {
+                callback({ success: false, error: 'Puan 0 altına düşemez!' });
+                return;
+            }
+            team.score = newScore;
+            saveData();
+            callback({ success: true, team: team });
+
+            io.emit('teams-update', teams);
+            io.to(data.teamId).emit('team-update', team);
+            console.log(`${team.name}: ${data.amount > 0 ? '+' : ''}${data.amount} puan`);
+        } else {
+            callback({ success: false, error: 'Takım bulunamadı!' });
+        }
+    });
+
+    // Takım sil (admin)
+    socket.on('delete-team', (teamId, callback) => {
+        const teamIndex = teams.findIndex(t => t.id === teamId);
+        if (teamIndex !== -1) {
+            const teamName = teams[teamIndex].name;
+            teams.splice(teamIndex, 1);
+            saveData();
+            callback({ success: true });
+
+            io.emit('teams-update', teams);
+            io.emit('team-deleted', teamId);
+            console.log('Takım silindi:', teamName);
+        } else {
+            callback({ success: false, error: 'Takım bulunamadı!' });
+        }
+    });
+
+    // Oyunu sıfırla (admin)
+    socket.on('reset-game', (callback) => {
+        const count = teams.length;
+        teams = [];
+        saveData();
+        callback({ success: true, count: count });
+
+        io.emit('teams-update', teams);
+        io.emit('game-reset');
+        console.log('Oyun sıfırlandı! ' + count + ' takım silindi.');
+    });
+
+    // Bağlantı koptu
+    socket.on('disconnect', () => {
+        console.log('Kullanıcı ayrıldı:', socket.id);
+    });
+});
+
+// Sunucuyu başlat
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => {
+    console.log(`
+╔════════════════════════════════════════╗
+║         KATİL KİM? OYUNU               ║
+║────────────────────────────────────────║
+║  Sunucu çalışıyor!                     ║
+║  http://localhost:${PORT}                  ║
+║                                        ║
+║  Admin Şifresi: ${ADMIN_PASSWORD}                 ║
+╚════════════════════════════════════════╝
+    `);
+});

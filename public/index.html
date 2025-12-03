@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Katil Kim?</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: Georgia, serif; background: #0a0a0a; color: #f0e6d3; min-height: 100vh; }
+        .container { max-width: 480px; margin: 0 auto; padding: 20px; }
+        header { text-align: center; padding: 30px 0; }
+        h1 { font-size: 36px; }
+        h1 span { color: #8B0000; }
+        .subtitle { color: #888; font-style: italic; margin-top: 10px; }
+        .page { display: none; }
+        .page.active { display: block; }
+        .btn { width: 100%; padding: 18px; background: #1a1a1a; border: 2px solid #2a2a2a; border-radius: 10px; color: #f0e6d3; font-size: 16px; cursor: pointer; margin-bottom: 10px; text-align: left; }
+        .btn:hover { border-color: #8B0000; }
+        .form-box { background: #141414; border: 1px solid #2a2a2a; border-radius: 10px; padding: 20px; margin-top: 20px; display: none; }
+        .form-box.show { display: block; }
+        .form-box input { width: 100%; padding: 12px; background: #0a0a0a; border: 2px solid #2a2a2a; border-radius: 6px; color: #f0e6d3; font-size: 16px; margin-bottom: 15px; }
+        .form-btns { display: flex; gap: 10px; }
+        .form-btns button { flex: 1; padding: 12px; border: none; border-radius: 6px; font-size: 14px; cursor: pointer; }
+        .btn-cancel { background: #2a2a2a; color: #f0e6d3; }
+        .btn-ok { background: #8B0000; color: #f0e6d3; }
+        .team-list { max-height: 200px; overflow-y: auto; margin-bottom: 15px; }
+        .team-opt { padding: 12px; background: #0a0a0a; border: 2px solid #2a2a2a; border-radius: 6px; margin-bottom: 8px; cursor: pointer; }
+        .team-opt:hover, .team-opt.sel { border-color: #8B0000; }
+        .team-name-big { font-size: 26px; font-weight: bold; text-align: center; margin: 20px 0; }
+        .clue-box { background: #141414; border: 1px solid #2a2a2a; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+        .clue-row { display: flex; gap: 10px; }
+        .clue-row input { flex: 1; padding: 12px; background: #0a0a0a; border: 2px solid #2a2a2a; border-radius: 6px; color: #f0e6d3; font-size: 16px; }
+        .clue-row button { padding: 12px 20px; background: #c9a227; border: none; border-radius: 6px; color: #000; font-weight: bold; cursor: pointer; }
+        .my-clues { max-height: 200px; overflow-y: auto; }
+        .clue-item { padding: 10px; background: #0a0a0a; border-left: 3px solid #c9a227; margin-bottom: 8px; border-radius: 4px; }
+        .exit-btn { width: 100%; padding: 14px; background: transparent; border: 2px solid #2a2a2a; border-radius: 8px; color: #888; cursor: pointer; }
+        .admin-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .back-btn { padding: 10px 16px; background: #2a2a2a; border: none; border-radius: 6px; color: #f0e6d3; cursor: pointer; }
+        .stats { display: flex; gap: 10px; margin-bottom: 20px; }
+        .stat { flex: 1; background: #141414; border: 1px solid #2a2a2a; border-radius: 10px; padding: 15px; text-align: center; }
+        .stat-val { font-size: 28px; font-weight: bold; }
+        .stat-lbl { font-size: 11px; color: #888; }
+        .admin-card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 15px; margin-bottom: 12px; }
+        .admin-top { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; }
+        .rank { width: 32px; height: 32px; background: #2a2a2a; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .rank.g { background: gold; color: #000; }
+        .rank.s { background: silver; color: #000; }
+        .rank.b { background: #cd7f32; color: #000; }
+        .admin-info { flex: 1; }
+        .admin-name { font-weight: bold; }
+        .admin-clue-count { font-size: 12px; color: #888; }
+        .admin-score { font-size: 26px; font-weight: bold; color: #c9a227; }
+        .admin-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+        .admin-btns button { padding: 10px 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; font-size: 13px; }
+        .bp10 { background: #2d5a27; color: #fff; }
+        .bp5 { background: #4a7c42; color: #fff; }
+        .bm5 { background: #a85a00; color: #fff; }
+        .bm10 { background: #8B0000; color: #fff; }
+        .bdel { background: #333; color: #888; }
+        .reset-btn { width: 100%; padding: 14px; background: #8B0000; border: none; border-radius: 8px; color: #fff; font-size: 14px; font-weight: bold; cursor: pointer; margin-top: 30px; }
+        .score-card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 15px; margin-bottom: 12px; display: flex; align-items: center; gap: 15px; }
+        .score-card .rank { width: 40px; height: 40px; font-size: 18px; }
+        .score-card .info { flex: 1; }
+        .score-card .name { font-size: 18px; font-weight: bold; }
+        .score-card .pts { font-size: 32px; font-weight: bold; color: #c9a227; }
+        .admin2-card { background: #1a1a1a; border: 1px solid #2a2a2a; border-radius: 10px; padding: 15px; margin-bottom: 15px; }
+        .admin2-card .team-header { font-size: 18px; font-weight: bold; color: #c9a227; margin-bottom: 10px; border-bottom: 1px solid #2a2a2a; padding-bottom: 10px; }
+        .admin2-card .clue-list { max-height: 300px; overflow-y: auto; }
+        .admin2-card .clue-entry { padding: 8px 10px; background: #0a0a0a; border-left: 3px solid #c9a227; margin-bottom: 6px; border-radius: 4px; font-size: 14px; }
+        .admin2-card .clue-time { font-size: 11px; color: #666; margin-left: 8px; }
+        .admin2-card .no-clues { color: #666; font-style: italic; font-size: 13px; }
+        .empty { text-align: center; padding: 40px; color: #888; }
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: none; justify-content: center; align-items: center; z-index: 1000; }
+        .modal.show { display: flex; }
+        .modal-box { background: #141414; border: 2px solid #2a2a2a; border-radius: 12px; padding: 25px; width: 90%; max-width: 300px; text-align: center; }
+        .modal-box input { width: 100%; padding: 14px; background: #0a0a0a; border: 2px solid #2a2a2a; border-radius: 6px; color: #f0e6d3; font-size: 18px; text-align: center; letter-spacing: 5px; margin: 15px 0; }
+        .modal-btns { display: flex; gap: 10px; }
+        .modal-btns button { flex: 1; padding: 12px; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        #toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: #2d5a27; color: #fff; padding: 14px 20px; border-radius: 8px; opacity: 0; transition: all 0.3s; z-index: 9999; }
+        #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+        #toast.err { background: #8B0000; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="page active" id="pgLobby">
+            <header>
+                <h1>Katil <span>Kim?</span></h1>
+                <p class="subtitle">"Herkes şüpheli, kimse masum değil..."</p>
+            </header>
+            <button class="btn" onclick="GAME.showCreateForm()">🎭 Yeni Takım Oluştur</button>
+            <button class="btn" onclick="GAME.showJoinForm()">🔑 Takıma Giriş Yap</button>
+            <button class="btn" onclick="GAME.showScoreboard()">🏆 Takım Puanları</button>
+            <button class="btn" onclick="GAME.showPassModal()">🔒 Yönetici Paneli</button>
+            <button class="btn" onclick="GAME.showPassModal2()">📋 Yönetici Paneli 2</button>
+            <div class="form-box" id="createForm">
+                <h3 style="margin-bottom:15px;">Yeni Takım</h3>
+                <input type="text" id="inpNewTeam" placeholder="Takım adı..." maxlength="20">
+                <div class="form-btns">
+                    <button class="btn-cancel" onclick="GAME.hideCreateForm()">İptal</button>
+                    <button class="btn-ok" onclick="GAME.createTeam()">Oluştur</button>
+                </div>
+            </div>
+            <div class="form-box" id="joinForm">
+                <h3 style="margin-bottom:15px;">Takım Seç</h3>
+                <div class="team-list" id="joinList"></div>
+                <div class="form-btns">
+                    <button class="btn-cancel" onclick="GAME.hideJoinForm()">İptal</button>
+                    <button class="btn-ok" onclick="GAME.joinTeam()">Giriş</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="page" id="pgTeam">
+            <div style="text-align:center;color:#888;font-size:12px;margin-top:20px;">🔍 Dedektif Takımı</div>
+            <div class="team-name-big" id="dispTeamName">-</div>
+            <div class="clue-box">
+                <h3 style="margin-bottom:12px;">🔎 Yeni İpucu Gir</h3>
+                <div class="clue-row">
+                    <input type="text" id="inpClue" placeholder="İpucunu yazın...">
+                    <button onclick="GAME.addClue()">Kaydet</button>
+                </div>
+            </div>
+            <div class="clue-box">
+                <h3 style="margin-bottom:12px;">📋 İpuçlarınız <span id="clueCnt">(0)</span></h3>
+                <div class="my-clues" id="myClueList"></div>
+            </div>
+            <button class="exit-btn" onclick="GAME.exitTeam()">🚪 Çıkış Yap</button>
+        </div>
+
+        <div class="page" id="pgAdmin">
+            <div class="admin-head">
+                <h2>👁️ Yönetici</h2>
+                <button class="back-btn" onclick="GAME.goLobby()">← Çıkış</button>
+            </div>
+            <div class="stats">
+                <div class="stat"><div class="stat-val" id="statTeams">0</div><div class="stat-lbl">TAKIM</div></div>
+                <div class="stat"><div class="stat-val" id="statClues">0</div><div class="stat-lbl">İPUCU</div></div>
+            </div>
+            <div id="adminList"></div>
+            <button class="reset-btn" onclick="GAME.resetGame()">⚠️ TÜM TAKIMLARI SİL</button>
+        </div>
+
+        <div class="page" id="pgScoreboard">
+            <div class="admin-head">
+                <h2>🏆 Takım Puanları</h2>
+                <button class="back-btn" onclick="GAME.goLobby()">← Geri</button>
+            </div>
+            <div id="scoreboardList"></div>
+        </div>
+
+        <div class="page" id="pgAdmin2">
+            <div class="admin-head">
+                <h2>📋 İpucu Takip</h2>
+                <button class="back-btn" onclick="GAME.goLobby()">← Geri</button>
+            </div>
+            <div id="admin2List"></div>
+        </div>
+    </div>
+
+    <div class="modal" id="passModal">
+        <div class="modal-box">
+            <h3>🔒 Şifre Girin</h3>
+            <input type="password" id="inpPass" maxlength="6" placeholder="******">
+            <div class="modal-btns">
+                <button class="btn-cancel" onclick="GAME.hidePassModal()">İptal</button>
+                <button class="btn-ok" onclick="GAME.checkPass()">Giriş</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script>
+        (function() {
+            var socket = io();
+            var teams = [];
+            var currentTeamId = localStorage.getItem('currentTeamId');
+            var selectedJoinId = null;
+            var isProcessing = false; // CLICK LOCK
+            var pendingAdmin = 1; // Hangi admin paneline gidilecek
+
+            function toast(msg, err) {
+                var t = document.getElementById('toast');
+                t.textContent = msg;
+                t.className = err ? 'show err' : 'show';
+                setTimeout(function() { t.className = ''; }, 2500);
+            }
+
+            function showPage(id) {
+                document.getElementById('pgLobby').classList.remove('active');
+                document.getElementById('pgTeam').classList.remove('active');
+                document.getElementById('pgAdmin').classList.remove('active');
+                document.getElementById('pgScoreboard').classList.remove('active');
+                document.getElementById('pgAdmin2').classList.remove('active');
+                document.getElementById(id).classList.add('active');
+            }
+
+            // ADMIN PUAN FONKSİYONU - GLOBAL, DEBOUNCED
+            window.adminScore = function(teamId, amount) {
+                if (isProcessing) {
+                    console.log('BLOCKED - isProcessing');
+                    return;
+                }
+                isProcessing = true;
+                
+                console.log('adminScore called:', teamId, amount);
+                
+                socket.emit('change-score', { teamId: teamId, amount: amount }, function(res) {
+                    isProcessing = false;
+                    if (res.success) {
+                        var sign = amount > 0 ? '+' : '';
+                        toast(res.team.name + ' ' + sign + amount + ' puan');
+                    } else {
+                        toast(res.error, true);
+                    }
+                });
+            };
+
+            // ADMIN SİL FONKSİYONU - GLOBAL
+            window.adminDel = function(teamId, teamName) {
+                if (isProcessing) return;
+                
+                console.log('adminDel called:', teamId, teamName);
+                
+                if (confirm(teamName + ' silinsin mi?')) {
+                    isProcessing = true;
+                    socket.emit('delete-team', teamId, function(res) {
+                        isProcessing = false;
+                        if (res.success) {
+                            toast(teamName + ' silindi!');
+                        } else {
+                            toast(res.error, true);
+                        }
+                    });
+                }
+            };
+
+            window.GAME = {
+                showCreateForm: function() {
+                    document.getElementById('createForm').classList.add('show');
+                    document.getElementById('joinForm').classList.remove('show');
+                },
+                hideCreateForm: function() {
+                    document.getElementById('createForm').classList.remove('show');
+                },
+                showJoinForm: function() {
+                    document.getElementById('joinForm').classList.add('show');
+                    document.getElementById('createForm').classList.remove('show');
+                    selectedJoinId = null;
+                    renderJoinList();
+                },
+                hideJoinForm: function() {
+                    document.getElementById('joinForm').classList.remove('show');
+                },
+                createTeam: function() {
+                    var name = document.getElementById('inpNewTeam').value.trim();
+                    if (!name) { toast('Takım adı girin!', true); return; }
+                    socket.emit('create-team', name, function(res) {
+                        if (res.success) {
+                            currentTeamId = res.team.id;
+                            localStorage.setItem('currentTeamId', currentTeamId);
+                            GAME.hideCreateForm();
+                            document.getElementById('inpNewTeam').value = '';
+                            toast(name + ' oluşturuldu!');
+                            showPage('pgTeam');
+                            renderTeamPage(res.team);
+                        } else { toast(res.error, true); }
+                    });
+                },
+                selectJoin: function(el) {
+                    selectedJoinId = el.getAttribute('data-id');
+                    var all = document.querySelectorAll('.team-opt');
+                    for (var i = 0; i < all.length; i++) all[i].classList.remove('sel');
+                    el.classList.add('sel');
+                },
+                joinTeam: function() {
+                    if (!selectedJoinId) { toast('Takım seçin!', true); return; }
+                    socket.emit('join-team', selectedJoinId, function(res) {
+                        if (res.success) {
+                            currentTeamId = selectedJoinId;
+                            localStorage.setItem('currentTeamId', currentTeamId);
+                            GAME.hideJoinForm();
+                            toast(res.team.name + ' giriş yapıldı!');
+                            showPage('pgTeam');
+                            renderTeamPage(res.team);
+                        } else { toast(res.error, true); }
+                    });
+                },
+                addClue: function() {
+                    var inp = document.getElementById('inpClue');
+                    var txt = inp.value.trim();
+                    if (!txt) { toast('İpucu yazın!', true); return; }
+                    socket.emit('add-clue', { teamId: currentTeamId, clue: txt }, function(res) {
+                        if (res.success) { inp.value = ''; toast('İpucu kaydedildi!'); }
+                        else { toast(res.error, true); }
+                    });
+                },
+                exitTeam: function() {
+                    currentTeamId = null;
+                    localStorage.removeItem('currentTeamId');
+                    showPage('pgLobby');
+                },
+                showPassModal: function() {
+                    pendingAdmin = 1;
+                    document.getElementById('passModal').classList.add('show');
+                    document.getElementById('inpPass').value = '';
+                },
+                hidePassModal: function() {
+                    document.getElementById('passModal').classList.remove('show');
+                },
+                checkPass: function() {
+                    var pass = document.getElementById('inpPass').value;
+                    socket.emit('admin-login', pass, function(res) {
+                        if (res.success) {
+                            GAME.hidePassModal();
+                            if (pendingAdmin === 2) {
+                                showPage('pgAdmin2');
+                                renderAdmin2();
+                            } else {
+                                showPage('pgAdmin');
+                                renderAdminList();
+                            }
+                        } else { toast('Yanlış şifre!', true); }
+                    });
+                },
+                goLobby: function() {
+                    showPage('pgLobby');
+                },
+                showScoreboard: function() {
+                    showPage('pgScoreboard');
+                    renderScoreboard();
+                },
+                showPassModal2: function() {
+                    pendingAdmin = 2;
+                    document.getElementById('passModal').classList.add('show');
+                    document.getElementById('inpPass').value = '';
+                },
+                showAdmin2: function() {
+                    showPage('pgAdmin2');
+                    renderAdmin2();
+                },
+                resetGame: function() {
+                    if (teams.length === 0) { toast('Silinecek takım yok!', true); return; }
+                    if (confirm(teams.length + ' takım silinecek. Emin misiniz?')) {
+                        socket.emit('reset-game', function(res) {
+                            if (res.success) { toast('Tüm takımlar silindi!'); }
+                        });
+                    }
+                }
+            };
+
+            function renderJoinList() {
+                var c = document.getElementById('joinList');
+                if (teams.length === 0) {
+                    c.innerHTML = '<div class="empty">Henüz takım yok</div>';
+                    return;
+                }
+                var html = '';
+                for (var i = 0; i < teams.length; i++) {
+                    var t = teams[i];
+                    html += '<div class="team-opt" data-id="' + t.id + '" onclick="GAME.selectJoin(this)">' + t.name + '</div>';
+                }
+                c.innerHTML = html;
+            }
+
+            function renderTeamPage(team) {
+                document.getElementById('dispTeamName').textContent = team.name;
+                document.getElementById('clueCnt').textContent = '(' + team.clues.length + ')';
+                var html = '';
+                if (team.clues.length === 0) {
+                    html = '<div style="color:#888;text-align:center;">Henüz ipucu yok</div>';
+                } else {
+                    for (var i = team.clues.length - 1; i >= 0; i--) {
+                        html += '<div class="clue-item">' + team.clues[i].text + '</div>';
+                    }
+                }
+                document.getElementById('myClueList').innerHTML = html;
+            }
+
+            function renderAdminList() {
+                document.getElementById('statTeams').textContent = teams.length;
+                var totalClues = 0;
+                for (var i = 0; i < teams.length; i++) {
+                    totalClues += teams[i].clues.length;
+                }
+                document.getElementById('statClues').textContent = totalClues;
+
+                var container = document.getElementById('adminList');
+                if (teams.length === 0) {
+                    container.innerHTML = '<div class="empty">Henüz takım yok</div>';
+                    return;
+                }
+
+                // Sıralama için kopyala
+                var sorted = teams.slice();
+                sorted.sort(function(a, b) { return b.score - a.score; });
+
+                var html = '';
+                for (var i = 0; i < sorted.length; i++) {
+                    var t = sorted[i];
+                    var rc = '';
+                    if (i === 0 && t.score > 0) rc = 'g';
+                    else if (i === 1 && t.score > 0) rc = 's';
+                    else if (i === 2 && t.score > 0) rc = 'b';
+
+                    // Escape team name for onclick
+                    var safeName = t.name.replace(/'/g, "\\'").replace(/"/g, '\\"');
+
+                    html += '<div class="admin-card" id="card_' + t.id + '">';
+                    html += '<div class="admin-top">';
+                    html += '<div class="rank ' + rc + '">' + (i + 1) + '</div>';
+                    html += '<div class="admin-info">';
+                    html += '<div class="admin-name">' + t.name + '</div>';
+                    html += '<div class="admin-clue-count">' + t.clues.length + ' ipucu</div>';
+                    html += '</div>';
+                    html += '<div class="admin-score" id="score_' + t.id + '">' + t.score + '</div>';
+                    html += '</div>';
+                    html += '<div class="admin-btns">';
+                    // onclick doğrudan fonksiyon çağırıyor, parametre olarak string geçiyor
+                    html += '<button class="bp10" onclick="adminScore(\'' + t.id + '\', 10)">+10</button>';
+                    html += '<button class="bp5" onclick="adminScore(\'' + t.id + '\', 5)">+5</button>';
+                    html += '<button class="bm5" onclick="adminScore(\'' + t.id + '\', -5)">-5</button>';
+                    html += '<button class="bm10" onclick="adminScore(\'' + t.id + '\', -10)">-10</button>';
+                    html += '<button class="bdel" onclick="adminDel(\'' + t.id + '\', \'' + safeName + '\')">✕ Sil</button>';
+                    html += '</div>';
+                    html += '</div>';
+                }
+                container.innerHTML = html;
+            }
+
+            // Sadece puan güncelle, tüm listeyi yeniden render etme
+            function updateScoresOnly() {
+                for (var i = 0; i < teams.length; i++) {
+                    var t = teams[i];
+                    var scoreEl = document.getElementById('score_' + t.id);
+                    if (scoreEl) {
+                        scoreEl.textContent = t.score;
+                    }
+                }
+            }
+
+            // Scoreboard render
+            function renderScoreboard() {
+                var container = document.getElementById('scoreboardList');
+                if (teams.length === 0) {
+                    container.innerHTML = '<div class="empty">Henüz takım yok</div>';
+                    return;
+                }
+
+                var sorted = teams.slice();
+                sorted.sort(function(a, b) { return b.score - a.score; });
+
+                var html = '';
+                for (var i = 0; i < sorted.length; i++) {
+                    var t = sorted[i];
+                    var rc = '';
+                    if (i === 0 && t.score > 0) rc = 'g';
+                    else if (i === 1 && t.score > 0) rc = 's';
+                    else if (i === 2 && t.score > 0) rc = 'b';
+
+                    html += '<div class="score-card" id="scard_' + t.id + '">';
+                    html += '<div class="rank ' + rc + '">' + (i + 1) + '</div>';
+                    html += '<div class="info"><div class="name">' + t.name + '</div></div>';
+                    html += '<div class="pts" id="spts_' + t.id + '">' + t.score + '</div>';
+                    html += '</div>';
+                }
+                container.innerHTML = html;
+            }
+
+            // Scoreboard puanlarını güncelle
+            function updateScoreboardOnly() {
+                for (var i = 0; i < teams.length; i++) {
+                    var t = teams[i];
+                    var ptsEl = document.getElementById('spts_' + t.id);
+                    if (ptsEl) {
+                        ptsEl.textContent = t.score;
+                    }
+                }
+            }
+
+            // Admin Panel 2 - İpucu Takip
+            function renderAdmin2() {
+                var container = document.getElementById('admin2List');
+                if (teams.length === 0) {
+                    container.innerHTML = '<div class="empty">Henüz takım yok</div>';
+                    return;
+                }
+
+                var html = '';
+                for (var i = 0; i < teams.length; i++) {
+                    var t = teams[i];
+                    html += '<div class="admin2-card" id="a2card_' + t.id + '">';
+                    html += '<div class="team-header">🔍 ' + t.name + '</div>';
+                    html += '<div class="clue-list" id="a2clues_' + t.id + '">';
+                    if (t.clues.length === 0) {
+                        html += '<div class="no-clues">Henüz ipucu yok</div>';
+                    } else {
+                        for (var j = 0; j < t.clues.length; j++) {
+                            html += '<div class="clue-entry">' + t.clues[j].text + '<span class="clue-time">' + t.clues[j].time + '</span></div>';
+                        }
+                    }
+                    html += '</div>';
+                    html += '</div>';
+                }
+                container.innerHTML = html;
+            }
+
+            // Admin2 ipuçlarını güncelle
+            function updateAdmin2Clues() {
+                for (var i = 0; i < teams.length; i++) {
+                    var t = teams[i];
+                    var clueContainer = document.getElementById('a2clues_' + t.id);
+                    if (clueContainer) {
+                        var html = '';
+                        if (t.clues.length === 0) {
+                            html = '<div class="no-clues">Henüz ipucu yok</div>';
+                        } else {
+                            for (var j = 0; j < t.clues.length; j++) {
+                                html += '<div class="clue-entry">' + t.clues[j].text + '<span class="clue-time">' + t.clues[j].time + '</span></div>';
+                            }
+                        }
+                        clueContainer.innerHTML = html;
+                    }
+                }
+            }
+
+            // SOCKET EVENTS
+            socket.on('teams-update', function(newTeams) {
+                var wasInAdmin = document.getElementById('pgAdmin').classList.contains('active');
+                var wasInScoreboard = document.getElementById('pgScoreboard').classList.contains('active');
+                var wasInAdmin2 = document.getElementById('pgAdmin2').classList.contains('active');
+                var oldLength = teams.length;
+                teams = newTeams;
+
+                // Join listesi açıksa güncelle
+                if (document.getElementById('joinForm').classList.contains('show')) {
+                    renderJoinList();
+                }
+
+                // Admin sayfasındaysa
+                if (wasInAdmin) {
+                    // Takım sayısı değiştiyse (ekleme/silme) yeniden render et
+                    if (oldLength !== teams.length) {
+                        renderAdminList();
+                    } else {
+                        // Sadece puanlar değiştiyse, DOM'da güncelle
+                        updateScoresOnly();
+                    }
+                }
+
+                // Scoreboard sayfasındaysa
+                if (wasInScoreboard) {
+                    if (oldLength !== teams.length) {
+                        renderScoreboard();
+                    } else {
+                        updateScoreboardOnly();
+                    }
+                }
+
+                // Admin2 sayfasındaysa
+                if (wasInAdmin2) {
+                    if (oldLength !== teams.length) {
+                        renderAdmin2();
+                    } else {
+                        updateAdmin2Clues();
+                    }
+                }
+
+                // Takım sayfasındaysa
+                if (currentTeamId) {
+                    for (var i = 0; i < teams.length; i++) {
+                        if (teams[i].id === currentTeamId) {
+                            renderTeamPage(teams[i]);
+                            break;
+                        }
+                    }
+                }
+
+                // Stats güncelle
+                document.getElementById('statTeams').textContent = teams.length;
+                var totalClues = 0;
+                for (var j = 0; j < teams.length; j++) {
+                    totalClues += teams[j].clues.length;
+                }
+                document.getElementById('statClues').textContent = totalClues;
+            });
+
+            socket.on('team-deleted', function(teamId) {
+                if (currentTeamId === teamId) {
+                    currentTeamId = null;
+                    localStorage.removeItem('currentTeamId');
+                    showPage('pgLobby');
+                    toast('Takımınız silindi!', true);
+                }
+            });
+
+            socket.on('game-reset', function() {
+                currentTeamId = null;
+                localStorage.removeItem('currentTeamId');
+                showPage('pgLobby');
+            });
+
+            // SAYFA YÜKLENINCE
+            window.onload = function() {
+                if (currentTeamId) {
+                    socket.emit('get-team', currentTeamId, function(team) {
+                        if (team) {
+                            showPage('pgTeam');
+                            renderTeamPage(team);
+                        } else {
+                            currentTeamId = null;
+                            localStorage.removeItem('currentTeamId');
+                        }
+                    });
+                }
+            };
+        })();
+    </script>
+</body>
+</html>
