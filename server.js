@@ -382,6 +382,13 @@ io.on('connection', (socket) => {
             return;
         }
         
+        // İlk doğru suçlama kontrolü
+        const firstCorrect = !teams.some(t => 
+            t.id !== team.id && 
+            t.accusation && 
+            t.accusation.correct
+        );
+        
         // Suçlamayı kaydet
         team.accusation = {
             killer: data.killer,
@@ -397,12 +404,6 @@ io.on('connection', (socket) => {
             team.score += 100; // Doğru suçlama bonusu
             
             // İlk doğru suçlama ekstra bonus
-            const firstCorrect = !teams.some(t => 
-                t.id !== team.id && 
-                t.accusation && 
-                t.accusation.correct
-            );
-            
             if (firstCorrect) {
                 team.score += 50;
             }
@@ -494,7 +495,7 @@ io.on('connection', (socket) => {
     // Oyunu bitir (admin)
     socket.on('end-game', (callback) => {
         if (!gameState.started) {
-            callback({ success: false, error: 'Oyun zaten bitmemiş!' });
+            callback({ success: false, error: 'Oyun zaten bitti!' });
             return;
         }
         

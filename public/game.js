@@ -270,7 +270,7 @@
             else if (i === 1 && t.score > 0) rc = 's';
             else if (i === 2 && t.score > 0) rc = 'b';
 
-            const safeName = t.name.replace(/'/g, "\\'").replace(/"/g, '\\"');
+            const safeName = t.name.replace(/\\/g, '\\\\').replace(/'/g, "\\'").replace(/"/g, '\\"');
 
             html += `<div class="admin-card">
                 <div class="admin-top">
@@ -504,10 +504,10 @@
         },
         
         changePhase(phase) {
-            if (confirm(`Faz ${phase} geçmek istediğinizden emin misiniz?`)) {
+            if (confirm(`Faz ${phase}'e geçmek istediğinizden emin misiniz?`)) {
                 socket.emit('change-phase', phase, (res) => {
                     if (res.success) {
-                        toast(`Faz ${phase} geçildi!`);
+                        toast(`Faz ${phase}'e geçildi!`);
                     } else {
                         toast(res.error, true);
                     }
